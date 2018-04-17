@@ -81,6 +81,9 @@ nut_create() {
 CHART nut_$x.charge '' "UPS Charge" "percentage" ups nut.charge area $((nut_priority + 1)) $nut_update_every
 DIMENSION battery_charge charge absolute 1 100
 
+CHART nut_$x.runtime '' "UPS Runtime" "Minutes" ups nut.runtime area $((nut_priority + 1)) $nut_update_every
+DIMENSION battery_runtime runtime absolute 1 60
+
 CHART nut_$x.battery_voltage '' "UPS Battery Voltage" "Volts" ups nut.battery.voltage line $((nut_priority + 2)) $nut_update_every
 DIMENSION battery_voltage voltage absolute 1 100
 DIMENSION battery_voltage_high high absolute 1 100
@@ -107,6 +110,9 @@ DIMENSION load load absolute 1 100
 
 CHART nut_$x.temp '' "UPS Temperature" "temperature" ups nut.temperature line $((nut_priority + 7)) $nut_update_every
 DIMENSION temp temp absolute 1 100
+
+CHART nut_$x.realpower '' "UPS Real Power (Nominal)" "Watts" ups nut.realpower line $((nut_priority)) $nut_update_every
+DIMENSION realpower realpower absolute 1 1
 EOF
 
 	if [ "${nut_clients_chart}" = "1" ]
@@ -138,6 +144,7 @@ nut_update() {
 		nut_get "$i" | awk "
 BEGIN {
 	battery_charge = 0;
+	battery_runtime = 0;
 	battery_voltage = 0;
 	battery_voltage_high = 0;
 	battery_voltage_low = 0;
@@ -151,10 +158,12 @@ BEGIN {
 	output_voltage = 0;
 	load = 0;
 	temp = 0;
+	realpower = 0;
 	client = 0;
 	do_clients = ${nut_clients_chart};
 }
 /^battery.charge: .*/			{ battery_charge = \$2 * 100 };
+/^battery.runtime: .*/			{ battery_runtime = \$2 };
 /^battery.voltage: .*/			{ battery_voltage = \$2 * 100 };
 /^battery.voltage.high: .*/		{ battery_voltage_high = \$2 * 100 };
 /^battery.voltage.low: .*/		{ battery_voltage_low = \$2 * 100 };
@@ -168,10 +177,15 @@ BEGIN {
 /^output.voltage: .*/			{ output_voltage = \$2 * 100 };
 /^ups.load: .*/					{ load = \$2 * 100 };
 /^ups.temperature: .*/			{ temp = \$2 * 100 };
+/^ups.realpower.nominal: .*/		{ realpower = \$2 };
 /^ups.connected_clients: .*/	{ clients = \$2 };
 END {
 	print \"BEGIN nut_$x.charge $1\";
 	print \"SET battery_charge = \" battery_charge;
+	print \"END\"
+
+	print \"BEGIN nut_$x.runtime $1\";
+	print \"SET battery_runtime = \" battery_runtime;
 	print \"END\"
 
 	print \"BEGIN nut_$x.battery_voltage $1\";
@@ -206,6 +220,10 @@ END {
 
 	print \"BEGIN nut_$x.temp $1\";
 	print \"SET temp = \" temp;
+	print \"END\"
+
+	print \"BEGIN nut_$x.realpower $1\";
+	print \"SET realpower = \" realpower;
 	print \"END\"
 
 	if(do_clients) {
